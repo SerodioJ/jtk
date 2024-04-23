@@ -482,6 +482,64 @@ public class LocalOrientFilter {
     return new EigenTensors3(u1,u2,w1,w2,eu,ev,ew,compressed);
   }
 
+  public void getGradients(float[][][] x,
+    float[][][] gi2, float[][][] gj2, float[][][] gk2,
+    float[][][] gigj, float[][][] gigk, float[][][] gjgk)
+  {
+
+    // Gradient.
+    int n1 = x[0][0].length;
+    int n2 = x[0].length;
+    int n3 = x.length;
+    float[][][] g1 = gi2;
+    float[][][] g2 = gj2;
+    float[][][] g3 = gk2;
+    _rgfGradient1.apply100(x,g1);
+    _rgfGradient2.apply010(x,g2);
+    _rgfGradient3.apply001(x,g3);
+    
+
+    // Gradient products.
+    float[][][] g11 = g1;
+    float[][][] g22 = g2;
+    float[][][] g33 = g3;
+    float[][][] g12 = gigj;
+    float[][][] g13 = gigk;
+    float[][][] g23 = gjgk;
+    computeGradientProducts(g1,g2,g3,g11,g12,g13,g22,g23,g33);
+  }
+
+  public void getGradientsSmoothed(float[][][] x,
+    float[][][] gi2, float[][][] gj2, float[][][] gk2,
+    float[][][] gigj, float[][][] gigk, float[][][] gjgk)
+  {
+    getGradients(x, gi2, gj2, gk2, gigj, gigk, gjgk);
+    int n1 = x[0][0].length;
+    int n2 = x[0].length;
+    int n3 = x.length;
+    // Smoothed gradient products comprise the structure tensor.
+    if (_rgfSmoother1!=null || _rgfSmoother2!=null || _rgfSmoother3!=null) {
+      float[][][] h = new float[n3][n2][n1];
+      float[][][][] gs = {gi2,gj2,gk2,gigj,gigk,gjgk};
+      for (float[][][] g:gs) {
+        if (_rgfSmoother1!=null) {
+          _rgfSmoother1.apply0XX(g,h);
+        } else {
+          copy(g,h);
+        }
+        if (_rgfSmoother2!=null) {
+          _rgfSmoother2.applyX0X(h,g);
+        } else {
+          copy(h,g);
+        }
+        if (_rgfSmoother3!=null) {
+          _rgfSmoother3.applyXX0(g,h);
+          copy(h,g);
+        }
+      }
+    }
+  }
+
   /**
    * Applies this filter for the specified image and outputs. All
    * outputs are optional and are computed for only non-null arrays.
